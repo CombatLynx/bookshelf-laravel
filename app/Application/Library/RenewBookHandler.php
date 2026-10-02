@@ -6,13 +6,12 @@ namespace App\Application\Library;
 
 use App\Domain\Library\BookId;
 use App\Domain\Library\BookRepository;
-use App\Domain\Library\BorrowerName;
 use App\Domain\Library\Clock;
 use App\Domain\Library\Exception\BookNotFound;
 use App\Domain\Library\LendingPolicy;
 use InvalidArgumentException;
 
-final class BorrowBookHandler
+final class RenewBookHandler
 {
     /** @var BookRepository */
     private $books;
@@ -30,24 +29,21 @@ final class BorrowBookHandler
         $this->clock = $clock;
     }
 
-    public function handle(string $bookId, string $borrowerName): void
+    public function handle(string $bookId): void
     {
-        $book = $this->books->findById($this->parseId($bookId));
+        try {
+            $id = BookId::fromString($bookId);
+        } catch (InvalidArgumentException $exception) {
+            throw BookNotFound::withId($bookId);
+        }
+
+        $book = $this->books->findById($id);
 
         if ($book === null) {
             throw BookNotFound::withId($bookId);
         }
 
-        $book->borrow(BorrowerName::fromString($borrowerName), $this->clock->today(), $this->policy);
+        $book->renew($this->clock->today(), $this->policy);
         $this->books->save($book);
-    }
-
-    private function parseId(string $bookId): BookId
-    {
-        try {
-            return BookId::fromString($bookId);
-        } catch (InvalidArgumentException $exception) {
-            throw BookNotFound::withId($bookId);
-        }
     }
 }

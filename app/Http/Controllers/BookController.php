@@ -8,8 +8,10 @@ use App\Application\Library\BorrowBookHandler;
 use App\Application\Library\Exception\DuplicateIsbn;
 use App\Application\Library\ListBooksHandler;
 use App\Application\Library\RegisterBookHandler;
+use App\Application\Library\RenewBookHandler;
 use App\Application\Library\ReturnBookHandler;
 use App\Domain\Library\Exception\InvalidIsbn;
+use App\Http\Requests\BorrowBookRequest;
 use App\Http\Requests\RegisterBookRequest;
 use DomainException;
 use Illuminate\Http\RedirectResponse;
@@ -45,11 +47,18 @@ class BookController extends Controller
             ->with('status', 'Книга добавлена на полку.');
     }
 
-    public function borrow(string $id, BorrowBookHandler $handler): RedirectResponse
+    public function borrow(string $id, BorrowBookRequest $request, BorrowBookHandler $handler): RedirectResponse
+    {
+        return $this->changeAvailability($id, function () use ($handler, $id, $request) {
+            $handler->handle($id, (string) $request->input('borrower'));
+        }, 'Книга выдана на две недели.');
+    }
+
+    public function renew(string $id, RenewBookHandler $handler): RedirectResponse
     {
         return $this->changeAvailability($id, function () use ($handler, $id) {
             $handler->handle($id);
-        }, 'Книга выдана.');
+        }, 'Срок выдачи продлён на две недели.');
     }
 
     public function returnBook(string $id, ReturnBookHandler $handler): RedirectResponse

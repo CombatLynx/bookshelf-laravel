@@ -12,4 +12,9 @@ final class InvalidBookData extends DomainException
     {
         return new self('Название и автор не могут быть пустыми.');
     }
+
+    public static function inconsistentLoan(): self
+    {
+        return new self('Выданная книга должна хранить читателя и срок, а книга на полке — нет.');
+    }
 }

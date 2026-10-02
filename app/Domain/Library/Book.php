@@ -7,10 +7,11 @@ namespace App\Domain\Library;
 use App\Domain\Library\Exception\BookAlreadyBorrowed;
 use App\Domain\Library\Exception\BookIsNotBorrowed;
 use App\Domain\Library\Exception\InvalidBookData;
+use DateTimeImmutable;
 
 /**
- * Агрегат «Книга». Следит за инвариантом: книгу можно выдать только с полки
- * и вернуть только если она уже на руках.
+ * Агрегат «Книга». Выдать можно только с полки и только читателю,
+ * вернуть — только с рук. Срок и число продлений держит вложенная выдача.
  */
 final class Book
 {
@@ -29,8 +30,17 @@ final class Book
     /** @var BookStatus */
     private $status;
 
-    private function __construct(BookId $id, string $title, string $author, Isbn $isbn, BookStatus $status)
-    {
+    /** @var Loan|null */
+    private $loan;
+
+    private function __construct(
+        BookId $id,
+        string $title,
+        string $author,
+        Isbn $isbn,
+        BookStatus $status,
+        ?Loan $loan
+    ) {
         $title = trim($title);
         $author = trim($author);
 
@@ -38,39 +48,70 @@ final class Book
             throw InvalidBookData::emptyTitleOrAuthor();
         }
 
+        if ($status->isBorrowed() !== ($loan !== null)) {
+            throw InvalidBookData::inconsistentLoan();
+        }
+
         $this->id = $id;
         $this->title = $title;
         $this->author = $author;
         $this->isbn = $isbn;
         $this->status = $status;
+        $this->loan = $loan;
     }
 
     public static function register(BookId $id, string $title, string $author, Isbn $isbn): self
     {
-        return new self($id, $title, $author, $isbn, BookStatus::available());
+        return new self($id, $title, $author, $isbn, BookStatus::available(), null);
     }
 
-    public static function reconstitute(BookId $id, string $title, string $author, Isbn $isbn, BookStatus $status): self
-    {
-        return new self($id, $title, $author, $isbn, $status);
+    public static function reconstitute(
+        BookId $id,
+        string $title,
+        string $author,
+        Isbn $isbn,
+        BookStatus $status,
+        ?Loan $loan
+    ): self {
+        return new self($id, $title, $author, $isbn, $status, $loan);
     }
 
-    public function borrow(): void
+    public function borrow(BorrowerName $borrower, DateTimeImmutable $on, LendingPolicy $policy): void
     {
         if ($this->status->isBorrowed()) {
             throw BookAlreadyBorrowed::named($this->title);
         }
 
+        $this->loan = Loan::open($borrower, $on, $policy);
         $this->status = BookStatus::borrowed();
+    }
+
+    public function renew(DateTimeImmutable $on, LendingPolicy $policy): void
+    {
+        if ($this->loan === null) {
+            throw BookIsNotBorrowed::named($this->title);
+        }
+
+        $this->loan = $this->loan->renew($on, $policy, $this->title);
     }
 
     public function giveBack(): void
     {
-        if ($this->status->isAvailable()) {
+        if ($this->status->isAvailable() || $this->loan === null) {
             throw BookIsNotBorrowed::named($this->title);
         }
 
+        $this->loan = null;
         $this->status = BookStatus::available();
+    }
+
+    public function canBeRenewed(DateTimeImmutable $on, LendingPolicy $policy): bool
+    {
+        if ($this->loan === null) {
+            return false;
+        }
+
+        return !$this->loan->isOverdue($on) && $policy->allowsAnotherRenewal($this->loan->renewals());
     }
 
     public function id(): BookId
@@ -96,5 +137,10 @@ final class Book
     public function status(): BookStatus
     {
         return $this->status;
+    }
+
+    public function loan(): ?Loan
+    {
+        return $this->loan;
     }
 }

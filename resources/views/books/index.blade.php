@@ -34,7 +34,7 @@
         }
 
         main {
-            width: min(980px, calc(100% - 2rem));
+            width: min(1120px, calc(100% - 2rem));
             margin: 0 auto;
             padding: 2.5rem 0 3rem;
         }
@@ -83,7 +83,7 @@
             font-size: 0.92rem;
         }
 
-        span {
+        label span {
             display: block;
             margin-bottom: 0.28rem;
             color: var(--muted);
@@ -123,6 +123,20 @@
         }
 
         button.ghost:hover { background: #f3faf6; }
+
+        .loan-form, .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            align-items: center;
+        }
+
+        .loan-form input {
+            width: 14rem;
+            padding: 0.45rem 0.6rem;
+        }
+
+        .who { display: block; margin-top: 0.2rem; }
 
         .submit { width: 100%; margin-top: 0.35rem; }
 
@@ -164,15 +178,20 @@
         td strong { font-family: Georgia, "Palatino Linotype", serif; font-size: 1.05rem; }
         td small { color: var(--muted); }
 
-        .isbn { font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+        .isbn {
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 0.02em;
+            white-space: nowrap;
+        }
 
         .badge {
             display: inline-block;
-            padding: 0.15rem 0.5rem;
+            padding: 0.15rem 0.55rem;
             border-radius: 999px;
             background: #eef6f2;
             color: var(--shelf);
             font-size: 0.82rem;
+            white-space: nowrap;
         }
 
         .badge.out {
@@ -196,6 +215,7 @@
         @media (max-width: 760px) {
             .layout { grid-template-columns: 1fr; }
             header h1 { font-size: 2.4rem; }
+            .loan-form input { width: 100%; }
             table, thead, tbody, tr, th, td { display: block; }
             thead { display: none; }
             tr { padding: 0.4rem 0 0.8rem; }
@@ -207,13 +227,16 @@
 <main>
     <header>
         <h1>Полка</h1>
-        <p>Тестовый каталог библиотеки. Можно «выдать» и «вернуть» книгу.</p>
+        <p>Тестовый каталог библиотеки. Книгу выдают читателю на 14 дней и один раз можно продлить.</p>
     </header>
 
     @if (session('status'))
         <p class="banner banner-ok">{{ session('status') }}</p>
     @endif
     @error('book')
+        <p class="banner banner-bad">{{ $message }}</p>
+    @enderror
+    @error('borrower')
         <p class="banner banner-bad">{{ $message }}</p>
     @enderror
 
@@ -263,16 +286,28 @@
                             <td class="isbn">{{ $book->isbn }}</td>
                             <td>
                                 <span class="badge {{ $book->isBorrowed() ? 'out' : '' }}">{{ $book->statusLabel() }}</span>
+                                @if ($book->borrower)
+                                    <small class="who">{{ $book->borrower }}, до {{ $book->dueOn }}</small>
+                                @endif
                             </td>
                             <td>
                                 @if ($book->isBorrowed())
-                                    <form method="post" action="{{ route('books.return', $book->id) }}">
-                                        @csrf
-                                        <button class="ghost" type="submit">Вернуть</button>
-                                    </form>
+                                    <div class="actions">
+                                        @if ($book->canBeRenewed())
+                                            <form method="post" action="{{ route('books.renew', $book->id) }}">
+                                                @csrf
+                                                <button class="ghost" type="submit">Продлить</button>
+                                            </form>
+                                        @endif
+                                        <form method="post" action="{{ route('books.return', $book->id) }}">
+                                            @csrf
+                                            <button class="ghost" type="submit">Вернуть</button>
+                                        </form>
+                                    </div>
                                 @else
-                                    <form method="post" action="{{ route('books.borrow', $book->id) }}">
+                                    <form class="loan-form" method="post" action="{{ route('books.borrow', $book->id) }}">
                                         @csrf
+                                        <input name="borrower" maxlength="80" placeholder="Читатель" required>
                                         <button type="submit">Выдать</button>
                                     </form>
                                 @endif
