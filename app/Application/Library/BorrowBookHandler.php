@@ -10,6 +10,7 @@ use App\Domain\Library\BorrowerName;
 use App\Domain\Library\Clock;
 use App\Domain\Library\Exception\BookNotFound;
 use App\Domain\Library\LendingPolicy;
+use App\Domain\Library\ReaderId;
 use InvalidArgumentException;
 
 final class BorrowBookHandler
@@ -30,7 +31,7 @@ final class BorrowBookHandler
         $this->clock = $clock;
     }
 
-    public function handle(string $bookId, string $borrowerName): void
+    public function handle(string $bookId, string $readerId, string $readerName): void
     {
         $book = $this->books->findById($this->parseId($bookId));
 
@@ -38,7 +39,12 @@ final class BorrowBookHandler
             throw BookNotFound::withId($bookId);
         }
 
-        $book->borrow(BorrowerName::fromString($borrowerName), $this->clock->today(), $this->policy);
+        $book->borrow(
+            BorrowerName::fromString($readerName),
+            ReaderId::fromInt((int) $readerId),
+            $this->clock->today(),
+            $this->policy
+        );
         $this->books->save($book);
     }
 

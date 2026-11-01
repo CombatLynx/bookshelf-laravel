@@ -12,6 +12,7 @@ use App\Domain\Library\BorrowerName;
 use App\Domain\Library\Exception\InvalidBookData;
 use App\Domain\Library\Isbn;
 use App\Domain\Library\Loan;
+use App\Domain\Library\ReaderId;
 use DateTimeImmutable;
 use Ramsey\Uuid\Uuid;
 
@@ -34,6 +35,7 @@ final class EloquentBookRepository implements BookRepository
                 'isbn' => $book->isbn()->toString(),
                 'status' => $book->status()->value(),
                 'borrower_name' => $loan === null ? null : $loan->borrower()->toString(),
+                'borrower_id' => $loan === null || $loan->readerId() === null ? null : $loan->readerId()->toString(),
                 'borrowed_on' => $loan === null ? null : $loan->borrowedOn()->format('Y-m-d'),
                 'due_on' => $loan === null ? null : $loan->dueOn()->format('Y-m-d'),
                 'renewals' => $loan === null ? 0 : $loan->renewals(),
@@ -94,8 +96,14 @@ final class EloquentBookRepository implements BookRepository
             throw InvalidBookData::inconsistentLoan();
         }
 
+        $rawReader = $record->getAttribute('borrower_id');
+        $reader = is_numeric($rawReader) && (int) $rawReader > 0
+            ? ReaderId::fromInt((int) $rawReader)
+            : null;
+
         return Loan::restore(
             BorrowerName::fromString($name),
+            $reader,
             new DateTimeImmutable((string) $borrowedOn),
             new DateTimeImmutable((string) $dueOn),
             (int) $record->getAttribute('renewals')

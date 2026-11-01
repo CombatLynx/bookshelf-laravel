@@ -7,6 +7,7 @@ namespace App\Application\Library;
 use App\Domain\Library\BookId;
 use App\Domain\Library\BookRepository;
 use App\Domain\Library\Exception\BookNotFound;
+use App\Domain\Library\ReaderId;
 use InvalidArgumentException;
 
 final class ReturnBookHandler
@@ -19,7 +20,7 @@ final class ReturnBookHandler
         $this->books = $books;
     }
 
-    public function handle(string $bookId): void
+    public function handle(string $bookId, string $readerId): void
     {
         try {
             $id = BookId::fromString($bookId);
@@ -33,7 +34,7 @@ final class ReturnBookHandler
             throw BookNotFound::withId($bookId);
         }
 
-        $book->giveBack();
+        $book->giveBack(ReaderId::fromInt((int) $readerId));
         $this->books->save($book);
     }
 }

@@ -53,6 +53,24 @@
             color: var(--muted);
         }
 
+        .account {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem 1rem;
+            align-items: center;
+            margin-top: 0.9rem;
+        }
+
+        .account a, .account button.link {
+            color: var(--shelf);
+            background: transparent;
+            padding: 0;
+        }
+
+        .account button.link:hover { background: transparent; text-decoration: underline; }
+
+        a.take { color: var(--shelf); font-weight: 650; white-space: nowrap; }
+
         .layout {
             display: grid;
             grid-template-columns: 280px 1fr;
@@ -227,16 +245,25 @@
 <main>
     <header>
         <h1>Полка</h1>
-        <p>Тестовый каталог библиотеки. Книгу выдают читателю на 14 дней и один раз можно продлить.</p>
+        <p>Тестовый каталог библиотеки. Книгу берёт вошедший читатель на 14 дней, один раз можно продлить.</p>
+        <div class="account">
+            @auth
+                <span>{{ auth()->user()->name }}</span>
+                <form method="post" action="{{ route('logout') }}">
+                    @csrf
+                    <button class="link" type="submit">Выйти</button>
+                </form>
+            @else
+                <a href="{{ route('login') }}">Войти</a>
+                <a href="{{ route('register') }}">Регистрация</a>
+            @endauth
+        </div>
     </header>
 
     @if (session('status'))
         <p class="banner banner-ok">{{ session('status') }}</p>
     @endif
     @error('book')
-        <p class="banner banner-bad">{{ $message }}</p>
-    @enderror
-    @error('borrower')
         <p class="banner banner-bad">{{ $message }}</p>
     @enderror
 
@@ -291,7 +318,7 @@
                                 @endif
                             </td>
                             <td>
-                                @if ($book->isBorrowed())
+                                @if ($book->canManage())
                                     <div class="actions">
                                         @if ($book->canBeRenewed())
                                             <form method="post" action="{{ route('books.renew', $book->id) }}">
@@ -304,12 +331,15 @@
                                             <button class="ghost" type="submit">Вернуть</button>
                                         </form>
                                     </div>
-                                @else
-                                    <form class="loan-form" method="post" action="{{ route('books.borrow', $book->id) }}">
-                                        @csrf
-                                        <input name="borrower" maxlength="80" placeholder="Читатель" required>
-                                        <button type="submit">Выдать</button>
-                                    </form>
+                                @elseif (!$book->isBorrowed())
+                                    @auth
+                                        <form method="post" action="{{ route('books.borrow', $book->id) }}">
+                                            @csrf
+                                            <button type="submit">Выдать</button>
+                                        </form>
+                                    @else
+                                        <a class="take" href="{{ route('login') }}">Войти и взять</a>
+                                    @endauth
                                 @endif
                             </td>
                         </tr>

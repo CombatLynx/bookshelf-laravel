@@ -7,6 +7,7 @@ namespace App\Application\Library;
 use App\Domain\Library\Book;
 use App\Domain\Library\BookStatus;
 use App\Domain\Library\LendingPolicy;
+use App\Domain\Library\ReaderId;
 use DateTimeImmutable;
 
 /** Снимок книги для экрана. Представление не работает с агрегатом напрямую. */
@@ -39,6 +40,9 @@ final class BookView
     /** @var bool */
     private $canRenew;
 
+    /** @var bool */
+    private $canManage;
+
     private function __construct(
         string $id,
         string $title,
@@ -48,7 +52,8 @@ final class BookView
         ?string $borrower,
         ?string $dueOn,
         bool $overdue,
-        bool $canRenew
+        bool $canRenew,
+        bool $canManage
     ) {
         $this->id = $id;
         $this->title = $title;
@@ -59,11 +64,13 @@ final class BookView
         $this->dueOn = $dueOn;
         $this->overdue = $overdue;
         $this->canRenew = $canRenew;
+        $this->canManage = $canManage;
     }
 
-    public static function fromBook(Book $book, DateTimeImmutable $today, LendingPolicy $policy): self
+    public static function fromBook(Book $book, DateTimeImmutable $today, LendingPolicy $policy, ?ReaderId $reader): self
     {
         $loan = $book->loan();
+        $held = $reader !== null && $book->isHeldBy($reader);
 
         return new self(
             $book->id()->toString(),
@@ -74,7 +81,8 @@ final class BookView
             $loan === null ? null : $loan->borrower()->toString(),
             $loan === null ? null : $loan->dueOn()->format('d.m.Y'),
             $loan !== null && $loan->isOverdue($today),
-            $book->canBeRenewed($today, $policy)
+            $held && $book->canBeRenewed($today, $policy),
+            $held
         );
     }
 
@@ -91,6 +99,11 @@ final class BookView
     public function canBeRenewed(): bool
     {
         return $this->canRenew;
+    }
+
+    public function canManage(): bool
+    {
+        return $this->canManage;
     }
 
     public function statusLabel(): string

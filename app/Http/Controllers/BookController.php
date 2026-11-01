@@ -11,18 +11,21 @@ use App\Application\Library\RegisterBookHandler;
 use App\Application\Library\RenewBookHandler;
 use App\Application\Library\ReturnBookHandler;
 use App\Domain\Library\Exception\InvalidIsbn;
-use App\Http\Requests\BorrowBookRequest;
+use App\Domain\Library\ReaderId;
 use App\Http\Requests\RegisterBookRequest;
 use DomainException;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class BookController extends Controller
 {
-    public function index(ListBooksHandler $listBooks): View
+    public function index(Request $request, ListBooksHandler $listBooks): View
     {
+        $user = $request->user();
+
         return view('books.index', [
-            'books' => $listBooks->handle(),
+            'books' => $listBooks->handle($user === null ? null : ReaderId::fromInt((int) $user->id)),
         ]);
     }
 
@@ -47,24 +50,30 @@ class BookController extends Controller
             ->with('status', 'Книга добавлена на полку.');
     }
 
-    public function borrow(string $id, BorrowBookRequest $request, BorrowBookHandler $handler): RedirectResponse
+    public function borrow(string $id, Request $request, BorrowBookHandler $handler): RedirectResponse
     {
-        return $this->changeAvailability($id, function () use ($handler, $id, $request) {
-            $handler->handle($id, (string) $request->input('borrower'));
+        $user = $request->user();
+
+        return $this->changeAvailability($id, function () use ($handler, $id, $user) {
+            $handler->handle($id, (string) $user->id, (string) $user->name);
         }, 'Книга выдана на две недели.');
     }
 
-    public function renew(string $id, RenewBookHandler $handler): RedirectResponse
+    public function renew(string $id, Request $request, RenewBookHandler $handler): RedirectResponse
     {
-        return $this->changeAvailability($id, function () use ($handler, $id) {
-            $handler->handle($id);
+        $user = $request->user();
+
+        return $this->changeAvailability($id, function () use ($handler, $id, $user) {
+            $handler->handle($id, (string) $user->id);
         }, 'Срок выдачи продлён на две недели.');
     }
 
-    public function returnBook(string $id, ReturnBookHandler $handler): RedirectResponse
+    public function returnBook(string $id, Request $request, ReturnBookHandler $handler): RedirectResponse
     {
-        return $this->changeAvailability($id, function () use ($handler, $id) {
-            $handler->handle($id);
+        $user = $request->user();
+
+        return $this->changeAvailability($id, function () use ($handler, $id, $user) {
+            $handler->handle($id, (string) $user->id);
         }, 'Книга возвращена на полку.');
     }
 

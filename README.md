@@ -2,7 +2,7 @@
 
 Тестовый каталог библиотеки на Laravel 8 с архитектурой Domain-Driven Design.
 
-Книгу можно поставить на полку, выдать читателю на 14 дней, один раз продлить и вернуть. Просроченную выдачу продлить нельзя. Правила живут в `app/Domain/Library`, сценарии — в `app/Application/Library`, сохранение в SQLite — в `app/Infrastructure`.
+Книгу можно поставить на полку, выдать вошедшему читателю на 14 дней, один раз продлить и вернуть. Просроченную выдачу продлить нельзя, чужую книгу вернуть тоже. Вход на сайте идёт через сессию, её проверяет Sanctum; для API тот же Sanctum выдаёт токен. Правила живут в `app/Domain/Library`, сценарии — в `app/Application/Library`, сохранение в SQLite — в `app/Infrastructure`.
 
 ## Запуск
 
@@ -32,6 +32,16 @@ php artisan serve
 Если файл `database\database.sqlite` уже есть, строку `New-Item` пропустите и выполните только `php artisan migrate --seed` — так добавятся колонки выдачи.
 
 Каталог откроется на http://127.0.0.1:8000. Остановить сервер в том же терминале: Ctrl+C.
+
+Если база уже была создана раньше, выполните `php artisan migrate`, чтобы появилась колонка `borrower_id`.
+
+Читатель регистрируется на http://127.0.0.1:8000/register. Токен для API:
+
+```powershell
+curl.exe -X POST http://127.0.0.1:8000/api/token -H "Content-Type: application/json" -d "{\"email\":\"anna@example.com\",\"password\":\"secret-pass\",\"device_name\":\"notebook\"}"
+```
+
+Дальше заголовок `Authorization: Bearer <token>` на `POST /api/books/{id}/borrow`, `/renew` и `/return`.
 
 Тесты:
 

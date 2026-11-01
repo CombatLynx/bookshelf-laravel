@@ -14,6 +14,9 @@ final class Loan
     /** @var BorrowerName */
     private $borrower;
 
+    /** @var ReaderId|null */
+    private $reader;
+
     /** @var DateTimeImmutable */
     private $borrowedOn;
 
@@ -25,25 +28,32 @@ final class Loan
 
     private function __construct(
         BorrowerName $borrower,
+        ?ReaderId $reader,
         DateTimeImmutable $borrowedOn,
         DateTimeImmutable $dueOn,
         int $renewals
     ) {
         $this->borrower = $borrower;
+        $this->reader = $reader;
         $this->borrowedOn = $borrowedOn;
         $this->dueOn = $dueOn;
         $this->renewals = $renewals;
     }
 
-    public static function open(BorrowerName $borrower, DateTimeImmutable $on, LendingPolicy $policy): self
-    {
+    public static function open(
+        BorrowerName $borrower,
+        ReaderId $reader,
+        DateTimeImmutable $on,
+        LendingPolicy $policy
+    ): self {
         $borrowedOn = self::atMidnight($on);
 
-        return new self($borrower, $borrowedOn, $policy->dueOn($borrowedOn), 0);
+        return new self($borrower, $reader, $borrowedOn, $policy->dueOn($borrowedOn), 0);
     }
 
     public static function restore(
         BorrowerName $borrower,
+        ?ReaderId $reader,
         DateTimeImmutable $borrowedOn,
         DateTimeImmutable $dueOn,
         int $renewals
@@ -55,7 +65,7 @@ final class Loan
             throw InvalidBookData::inconsistentLoan();
         }
 
-        return new self($borrower, $borrowedOn, $dueOn, $renewals);
+        return new self($borrower, $reader, $borrowedOn, $dueOn, $renewals);
     }
 
     public function renew(DateTimeImmutable $on, LendingPolicy $policy, string $title): self
@@ -68,7 +78,12 @@ final class Loan
             throw LoanCannotBeRenewed::limitReached($title);
         }
 
-        return new self($this->borrower, $this->borrowedOn, $policy->dueOn($on), $this->renewals + 1);
+        return new self($this->borrower, $this->reader, $this->borrowedOn, $policy->dueOn($on), $this->renewals + 1);
+    }
+
+    public function isHeldBy(ReaderId $reader): bool
+    {
+        return $this->reader === null || $this->reader->equals($reader);
     }
 
     public function isOverdue(DateTimeImmutable $on): bool
@@ -79,6 +94,11 @@ final class Loan
     public function borrower(): BorrowerName
     {
         return $this->borrower;
+    }
+
+    public function readerId(): ?ReaderId
+    {
+        return $this->reader;
     }
 
     public function borrowedOn(): DateTimeImmutable

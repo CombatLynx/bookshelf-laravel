@@ -9,6 +9,7 @@ use App\Domain\Library\BookRepository;
 use App\Domain\Library\Clock;
 use App\Domain\Library\Exception\BookNotFound;
 use App\Domain\Library\LendingPolicy;
+use App\Domain\Library\ReaderId;
 use InvalidArgumentException;
 
 final class RenewBookHandler
@@ -29,7 +30,7 @@ final class RenewBookHandler
         $this->clock = $clock;
     }
 
-    public function handle(string $bookId): void
+    public function handle(string $bookId, string $readerId): void
     {
         try {
             $id = BookId::fromString($bookId);
@@ -43,7 +44,7 @@ final class RenewBookHandler
             throw BookNotFound::withId($bookId);
         }
 
-        $book->renew($this->clock->today(), $this->policy);
+        $book->renew(ReaderId::fromInt((int) $readerId), $this->clock->today(), $this->policy);
         $this->books->save($book);
     }
 }

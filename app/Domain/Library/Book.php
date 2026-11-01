@@ -7,6 +7,7 @@ namespace App\Domain\Library;
 use App\Domain\Library\Exception\BookAlreadyBorrowed;
 use App\Domain\Library\Exception\BookIsNotBorrowed;
 use App\Domain\Library\Exception\InvalidBookData;
+use App\Domain\Library\Exception\LoanBelongsToAnotherReader;
 use DateTimeImmutable;
 
 /**
@@ -76,33 +77,36 @@ final class Book
         return new self($id, $title, $author, $isbn, $status, $loan);
     }
 
-    public function borrow(BorrowerName $borrower, DateTimeImmutable $on, LendingPolicy $policy): void
-    {
+    public function borrow(
+        BorrowerName $borrower,
+        ReaderId $reader,
+        DateTimeImmutable $on,
+        LendingPolicy $policy
+    ): void {
         if ($this->status->isBorrowed()) {
             throw BookAlreadyBorrowed::named($this->title);
         }
 
-        $this->loan = Loan::open($borrower, $on, $policy);
+        $this->loan = Loan::open($borrower, $reader, $on, $policy);
         $this->status = BookStatus::borrowed();
     }
 
-    public function renew(DateTimeImmutable $on, LendingPolicy $policy): void
+    public function renew(ReaderId $reader, DateTimeImmutable $on, LendingPolicy $policy): void
     {
-        if ($this->loan === null) {
-            throw BookIsNotBorrowed::named($this->title);
-        }
-
+        $this->assertHeldBy($reader);
         $this->loan = $this->loan->renew($on, $policy, $this->title);
     }
 
-    public function giveBack(): void
+    public function giveBack(ReaderId $reader): void
     {
-        if ($this->status->isAvailable() || $this->loan === null) {
-            throw BookIsNotBorrowed::named($this->title);
-        }
-
+        $this->assertHeldBy($reader);
         $this->loan = null;
         $this->status = BookStatus::available();
+    }
+
+    public function isHeldBy(ReaderId $reader): bool
+    {
+        return $this->loan !== null && $this->loan->isHeldBy($reader);
     }
 
     public function canBeRenewed(DateTimeImmutable $on, LendingPolicy $policy): bool
@@ -142,5 +146,16 @@ final class Book
     public function loan(): ?Loan
     {
         return $this->loan;
+    }
+
+    private function assertHeldBy(ReaderId $reader): void
+    {
+        if ($this->status->isAvailable() || $this->loan === null) {
+            throw BookIsNotBorrowed::named($this->title);
+        }
+
+        if (!$this->loan->isHeldBy($reader)) {
+            throw LoanBelongsToAnotherReader::named($this->title);
+        }
     }
 }

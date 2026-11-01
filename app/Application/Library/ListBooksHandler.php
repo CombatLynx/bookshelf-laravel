@@ -8,6 +8,7 @@ use App\Domain\Library\Book;
 use App\Domain\Library\BookRepository;
 use App\Domain\Library\Clock;
 use App\Domain\Library\LendingPolicy;
+use App\Domain\Library\ReaderId;
 
 final class ListBooksHandler
 {
@@ -30,13 +31,13 @@ final class ListBooksHandler
     /**
      * @return BookView[]
      */
-    public function handle(): array
+    public function handle(?ReaderId $reader = null): array
     {
         $today = $this->clock->today();
         $policy = $this->policy;
 
-        return array_map(static function (Book $book) use ($today, $policy) {
-            return BookView::fromBook($book, $today, $policy);
+        return array_map(static function (Book $book) use ($today, $policy, $reader) {
+            return BookView::fromBook($book, $today, $policy, $reader);
         }, $this->books->all());
     }
 }

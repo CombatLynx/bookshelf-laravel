@@ -12,10 +12,12 @@ use App\Domain\Library\Exception\BookAlreadyBorrowed;
 use App\Domain\Library\Exception\BookIsNotBorrowed;
 use App\Domain\Library\Exception\InvalidBookData;
 use App\Domain\Library\Exception\InvalidBorrowerName;
+use App\Domain\Library\Exception\LoanBelongsToAnotherReader;
 use App\Domain\Library\Exception\LoanCannotBeRenewed;
 use App\Domain\Library\Isbn;
 use App\Domain\Library\LendingPolicy;
 use App\Domain\Library\Loan;
+use App\Domain\Library\ReaderId;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 
@@ -35,14 +37,14 @@ final class BookTest extends TestCase
         $book = $this->book();
         $on = new DateTimeImmutable('2026-10-02');
 
-        $book->borrow($this->anna(), $on, $this->policy());
+        $book->borrow($this->anna(), $this->reader(), $on, $this->policy());
 
         $this->assertTrue($book->status()->isBorrowed());
         $this->assertSame('Анна', $book->loan()->borrower()->toString());
         $this->assertSame('2026-10-16', $book->loan()->dueOn()->format('Y-m-d'));
         $this->assertTrue($book->canBeRenewed($on, $this->policy()));
 
-        $book->giveBack();
+        $book->giveBack($this->reader());
 
         $this->assertTrue($book->status()->isAvailable());
         $this->assertNull($book->loan());
@@ -52,9 +54,9 @@ final class BookTest extends TestCase
     {
         $book = $this->book();
         $policy = $this->policy();
-        $book->borrow($this->anna(), new DateTimeImmutable('2026-10-01'), $policy);
+        $book->borrow($this->anna(), $this->reader(), new DateTimeImmutable('2026-10-01'), $policy);
 
-        $book->renew(new DateTimeImmutable('2026-10-10'), $policy);
+        $book->renew($this->reader(), new DateTimeImmutable('2026-10-10'), $policy);
 
         $this->assertSame(1, $book->loan()->renewals());
         $this->assertSame('2026-10-24', $book->loan()->dueOn()->format('Y-m-d'));
@@ -65,11 +67,11 @@ final class BookTest extends TestCase
     {
         $book = $this->borrowedBook();
         $policy = $this->policy();
-        $book->renew(new DateTimeImmutable('2026-10-10'), $policy);
+        $book->renew($this->reader(), new DateTimeImmutable('2026-10-10'), $policy);
 
         $this->expectException(LoanCannotBeRenewed::class);
 
-        $book->renew(new DateTimeImmutable('2026-10-12'), $policy);
+        $book->renew($this->reader(), new DateTimeImmutable('2026-10-12'), $policy);
     }
 
     public function test_overdue_loan_cannot_be_renewed(): void
@@ -78,7 +80,7 @@ final class BookTest extends TestCase
 
         $this->expectException(LoanCannotBeRenewed::class);
 
-        $book->renew(new DateTimeImmutable('2026-10-20'), $this->policy());
+        $book->renew($this->reader(), new DateTimeImmutable('2026-10-20'), $this->policy());
     }
 
     public function test_borrowed_book_cannot_be_borrowed_again(): void
@@ -87,21 +89,21 @@ final class BookTest extends TestCase
 
         $this->expectException(BookAlreadyBorrowed::class);
 
-        $book->borrow($this->anna(), new DateTimeImmutable('2026-10-03'), $this->policy());
+        $book->borrow($this->anna(), $this->reader(), new DateTimeImmutable('2026-10-03'), $this->policy());
     }
 
     public function test_available_book_cannot_be_returned(): void
     {
         $this->expectException(BookIsNotBorrowed::class);
 
-        $this->book()->giveBack();
+        $this->book()->giveBack($this->reader());
     }
 
     public function test_shelf_book_cannot_be_renewed(): void
     {
         $this->expectException(BookIsNotBorrowed::class);
 
-        $this->book()->renew(new DateTimeImmutable('2026-10-02'), $this->policy());
+        $this->book()->renew($this->reader(), new DateTimeImmutable('2026-10-02'), $this->policy());
     }
 
     public function test_title_is_required(): void
@@ -147,7 +149,7 @@ final class BookTest extends TestCase
             'Eric Evans',
             Isbn::fromString('9780321125217'),
             BookStatus::available(),
-            Loan::open($this->anna(), new DateTimeImmutable('2026-10-02'), $this->policy())
+            Loan::open($this->anna(), $this->reader(), new DateTimeImmutable('2026-10-02'), $this->policy())
         );
     }
 
@@ -164,14 +166,26 @@ final class BookTest extends TestCase
     private function borrowedBook(): Book
     {
         $book = $this->book();
-        $book->borrow($this->anna(), new DateTimeImmutable('2026-10-01'), $this->policy());
+        $book->borrow($this->anna(), $this->reader(), new DateTimeImmutable('2026-10-01'), $this->policy());
 
         return $book;
+    }
+
+    public function test_another_reader_cannot_take_the_book_back(): void
+    {
+        $this->expectException(LoanBelongsToAnotherReader::class);
+
+        $this->borrowedBook()->giveBack(ReaderId::fromInt(2));
     }
 
     private function anna(): BorrowerName
     {
         return BorrowerName::fromString('Анна');
+    }
+
+    private function reader(): ReaderId
+    {
+        return ReaderId::fromInt(1);
     }
 
     private function policy(): LendingPolicy

@@ -33,11 +33,12 @@ final class RegisterBookHandlerTest extends TestCase
         $id = (new RegisterBookHandler($books))->handle('Clean Code', 'Robert C. Martin', '9780132350884');
 
         (new BorrowBookHandler($books, new LendingPolicy(), new FrozenClock(new DateTimeImmutable('2026-10-02'))))
-            ->handle($id, 'Анна');
+            ->handle($id, '1', 'Анна');
 
         $stored = $books->all()[0];
         $this->assertTrue($stored->status()->isBorrowed());
         $this->assertSame('Анна', $stored->loan()->borrower()->toString());
+        $this->assertSame('1', $stored->loan()->readerId()->toString());
         $this->assertSame('2026-10-16', $stored->loan()->dueOn()->format('Y-m-d'));
     }
 }
