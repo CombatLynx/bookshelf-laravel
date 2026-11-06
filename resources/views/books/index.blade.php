@@ -245,7 +245,7 @@
 <main>
     <header>
         <h1>Полка</h1>
-        <p>Тестовый каталог библиотеки. Книгу берёт вошедший читатель на 14 дней, один раз можно продлить.</p>
+        <p>Тестовый каталог библиотеки. Книгу берёт вошедший читатель на 14 дней. Чужую книгу можно забронировать.</p>
         <div class="account">
             @auth
                 <span>{{ auth()->user()->name }}</span>
@@ -312,9 +312,12 @@
                             </td>
                             <td class="isbn">{{ $book->isbn }}</td>
                             <td>
-                                <span class="badge {{ $book->isBorrowed() ? 'out' : '' }}">{{ $book->statusLabel() }}</span>
+                                <span class="badge {{ $book->isBorrowed() || $book->isReserved() ? 'out' : '' }}">{{ $book->statusLabel() }}</span>
                                 @if ($book->borrower)
                                     <small class="who">{{ $book->borrower }}, до {{ $book->dueOn }}</small>
+                                @endif
+                                @if ($book->reservationNote)
+                                    <small class="who">{{ $book->reservationNote }}</small>
                                 @endif
                             </td>
                             <td>
@@ -331,15 +334,35 @@
                                             <button class="ghost" type="submit">Вернуть</button>
                                         </form>
                                     </div>
-                                @elseif (!$book->isBorrowed())
-                                    @auth
-                                        <form method="post" action="{{ route('books.borrow', $book->id) }}">
-                                            @csrf
-                                            <button type="submit">Выдать</button>
-                                        </form>
-                                    @else
-                                        <a class="take" href="{{ route('login') }}">Войти и взять</a>
-                                    @endauth
+                                @elseif ($book->canBorrow() || $book->canReserve() || $book->canCancelReservation())
+                                    <div class="actions">
+                                        @if ($book->canBorrow())
+                                            <form method="post" action="{{ route('books.borrow', $book->id) }}">
+                                                @csrf
+                                                <button type="submit">Выдать</button>
+                                            </form>
+                                        @endif
+                                        @if ($book->canReserve())
+                                            <form method="post" action="{{ route('books.reserve', $book->id) }}">
+                                                @csrf
+                                                <button class="ghost" type="submit">Забронировать</button>
+                                            </form>
+                                        @endif
+                                        @if ($book->canCancelReservation())
+                                            <form method="post" action="{{ route('books.reservation.cancel', $book->id) }}">
+                                                @csrf
+                                                <button class="ghost" type="submit">Снять бронь</button>
+                                            </form>
+                                        @endif
+                                    </div>
+                                @else
+                                    @guest
+                                        @if ($book->isBorrowed())
+                                            <a class="take" href="{{ route('login') }}">Войти и забронировать</a>
+                                        @elseif (!$book->isReserved())
+                                            <a class="take" href="{{ route('login') }}">Войти и взять</a>
+                                        @endif
+                                    @endguest
                                 @endif
                             </td>
                         </tr>

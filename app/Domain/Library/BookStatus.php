@@ -10,13 +10,14 @@ final class BookStatus
 {
     public const AVAILABLE = 'available';
     public const BORROWED = 'borrowed';
+    public const RESERVED = 'reserved';
 
     /** @var string */
     private $value;
 
     private function __construct(string $value)
     {
-        if (!in_array($value, [self::AVAILABLE, self::BORROWED], true)) {
+        if (!in_array($value, [self::AVAILABLE, self::BORROWED, self::RESERVED], true)) {
             throw new InvalidArgumentException('Неизвестный статус книги.');
         }
 
@@ -31,6 +32,11 @@ final class BookStatus
     public static function borrowed(): self
     {
         return new self(self::BORROWED);
+    }
+
+    public static function reserved(): self
+    {
+        return new self(self::RESERVED);
     }
 
     public static function fromString(string $value): self
@@ -51,6 +57,11 @@ final class BookStatus
     public function isAvailable(): bool
     {
         return $this->value === self::AVAILABLE;
+    }
+
+    public function isReserved(): bool
+    {
+        return $this->value === self::RESERVED;
     }
 
     public function equals(self $other): bool

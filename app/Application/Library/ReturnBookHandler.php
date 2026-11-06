@@ -6,8 +6,10 @@ namespace App\Application\Library;
 
 use App\Domain\Library\BookId;
 use App\Domain\Library\BookRepository;
+use App\Domain\Library\Clock;
 use App\Domain\Library\Exception\BookNotFound;
 use App\Domain\Library\ReaderId;
+use App\Domain\Library\ReservationPolicy;
 use InvalidArgumentException;
 
 final class ReturnBookHandler
@@ -15,12 +17,20 @@ final class ReturnBookHandler
     /** @var BookRepository */
     private $books;
 
-    public function __construct(BookRepository $books)
+    /** @var Clock */
+    private $clock;
+
+    /** @var ReservationPolicy */
+    private $reservations;
+
+    public function __construct(BookRepository $books, Clock $clock, ReservationPolicy $reservations)
     {
         $this->books = $books;
+        $this->clock = $clock;
+        $this->reservations = $reservations;
     }
 
-    public function handle(string $bookId, string $readerId): void
+    public function handle(string $bookId, string $readerId): bool
     {
         try {
             $id = BookId::fromString($bookId);
@@ -34,7 +44,13 @@ final class ReturnBookHandler
             throw BookNotFound::withId($bookId);
         }
 
-        $book->giveBack(ReaderId::fromInt((int) $readerId));
+        $setAside = $book->giveBack(
+            ReaderId::fromInt((int) $readerId),
+            $this->clock->today(),
+            $this->reservations
+        );
         $this->books->save($book);
+
+        return $setAside;
     }
 }

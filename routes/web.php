@@ -18,6 +18,8 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
     Route::post('/books/{id}/borrow', [BookController::class, 'borrow'])->name('books.borrow');
+    Route::post('/books/{id}/reserve', [BookController::class, 'reserve'])->name('books.reserve');
+    Route::post('/books/{id}/reservation/cancel', [BookController::class, 'cancelReservation'])->name('books.reservation.cancel');
     Route::post('/books/{id}/renew', [BookController::class, 'renew'])->name('books.renew');
     Route::post('/books/{id}/return', [BookController::class, 'returnBook'])->name('books.return');
 });

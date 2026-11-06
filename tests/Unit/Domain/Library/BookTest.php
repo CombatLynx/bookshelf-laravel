@@ -18,6 +18,7 @@ use App\Domain\Library\Isbn;
 use App\Domain\Library\LendingPolicy;
 use App\Domain\Library\Loan;
 use App\Domain\Library\ReaderId;
+use App\Domain\Library\ReservationPolicy;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 
@@ -44,7 +45,7 @@ final class BookTest extends TestCase
         $this->assertSame('2026-10-16', $book->loan()->dueOn()->format('Y-m-d'));
         $this->assertTrue($book->canBeRenewed($on, $this->policy()));
 
-        $book->giveBack($this->reader());
+        $book->giveBack($this->reader(), new DateTimeImmutable('2026-10-16'), new ReservationPolicy());
 
         $this->assertTrue($book->status()->isAvailable());
         $this->assertNull($book->loan());
@@ -96,7 +97,7 @@ final class BookTest extends TestCase
     {
         $this->expectException(BookIsNotBorrowed::class);
 
-        $this->book()->giveBack($this->reader());
+        $this->book()->giveBack($this->reader(), new DateTimeImmutable('2026-10-02'), new ReservationPolicy());
     }
 
     public function test_shelf_book_cannot_be_renewed(): void
@@ -175,7 +176,7 @@ final class BookTest extends TestCase
     {
         $this->expectException(LoanBelongsToAnotherReader::class);
 
-        $this->borrowedBook()->giveBack(ReaderId::fromInt(2));
+        $this->borrowedBook()->giveBack(ReaderId::fromInt(2), new DateTimeImmutable('2026-10-10'), new ReservationPolicy());
     }
 
     private function anna(): BorrowerName

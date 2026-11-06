@@ -14,6 +14,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::delete('/token', [TokenController::class, 'destroy']);
     Route::post('/books/{id}/borrow', [BookLoanController::class, 'borrow']);
+    Route::post('/books/{id}/reserve', [BookLoanController::class, 'reserve']);
+    Route::delete('/books/{id}/reservation', [BookLoanController::class, 'cancelReservation']);
     Route::post('/books/{id}/renew', [BookLoanController::class, 'renew']);
     Route::post('/books/{id}/return', [BookLoanController::class, 'returnBook']);
 });

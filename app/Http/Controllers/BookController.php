@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Application\Library\BorrowBookHandler;
+use App\Application\Library\CancelReservationHandler;
 use App\Application\Library\Exception\DuplicateIsbn;
 use App\Application\Library\ListBooksHandler;
 use App\Application\Library\RegisterBookHandler;
 use App\Application\Library\RenewBookHandler;
+use App\Application\Library\ReserveBookHandler;
 use App\Application\Library\ReturnBookHandler;
 use App\Domain\Library\Exception\InvalidIsbn;
 use App\Domain\Library\ReaderId;
@@ -56,7 +58,9 @@ class BookController extends Controller
 
         return $this->changeAvailability($id, function () use ($handler, $id, $user) {
             $handler->handle($id, (string) $user->id, (string) $user->name);
-        }, 'Книга выдана на две недели.');
+
+            return 'Книга выдана на две недели.';
+        });
     }
 
     public function renew(string $id, Request $request, RenewBookHandler $handler): RedirectResponse
@@ -65,7 +69,9 @@ class BookController extends Controller
 
         return $this->changeAvailability($id, function () use ($handler, $id, $user) {
             $handler->handle($id, (string) $user->id);
-        }, 'Срок выдачи продлён на две недели.');
+
+            return 'Срок выдачи продлён на две недели.';
+        });
     }
 
     public function returnBook(string $id, Request $request, ReturnBookHandler $handler): RedirectResponse
@@ -73,17 +79,43 @@ class BookController extends Controller
         $user = $request->user();
 
         return $this->changeAvailability($id, function () use ($handler, $id, $user) {
+            $setAside = $handler->handle($id, (string) $user->id);
+
+            return $setAside
+                ? 'Книга отложена для читателя, который её забронировал.'
+                : 'Книга возвращена на полку.';
+        });
+    }
+
+    public function reserve(string $id, Request $request, ReserveBookHandler $handler): RedirectResponse
+    {
+        $user = $request->user();
+
+        return $this->changeAvailability($id, function () use ($handler, $id, $user) {
+            $handler->handle($id, (string) $user->id, (string) $user->name);
+
+            return 'Книга забронирована. Её отложат, когда текущий читатель вернёт экземпляр.';
+        });
+    }
+
+    public function cancelReservation(string $id, Request $request, CancelReservationHandler $handler): RedirectResponse
+    {
+        $user = $request->user();
+
+        return $this->changeAvailability($id, function () use ($handler, $id, $user) {
             $handler->handle($id, (string) $user->id);
-        }, 'Книга возвращена на полку.');
+
+            return 'Бронь снята.';
+        });
     }
 
     /**
-     * @param callable(): void $action
+     * @param callable(): string $action
      */
-    private function changeAvailability(string $id, callable $action, string $success): RedirectResponse
+    private function changeAvailability(string $id, callable $action): RedirectResponse
     {
         try {
-            $action();
+            $success = $action();
         } catch (DomainException $exception) {
             return redirect()
                 ->route('books.index')
